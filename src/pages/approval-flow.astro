@@ -1,0 +1,1866 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="承認フローデモ | Optiens"
+  description="Salesforce Approval Process相当の承認ワークフローを、ライセンス不要で構築できることを示すデモです。経費・購買・契約・休暇・採用の5テンプレートで、金額や雇用形態に応じた承認ルート分岐を体験できます。"
+  canonical="https://optiens.com/approval-flow"
+>
+  <main class="af-main light-section">
+    <!-- ヒーロー -->
+    <section class="af-hero">
+      <div class="container text-center">
+        <p class="hero-eyebrow">DEMO</p>
+        <h1>承認フローデモ</h1>
+        <p class="hero-sub">
+          Salesforce Approval Process（承認ワークフロー）相当の機能を、ライセンス不要で構築できることを示すデモです。<br />
+          画面右上の<strong>ロール切替</strong>で、申請者・承認者の視点を切り替えてご体験いただけます。
+        </p>
+      </div>
+    </section>
+
+    <!-- ツールバー（ロール切替） -->
+    <section class="af-toolbar-section">
+      <div class="container">
+        <div class="af-toolbar">
+          <div class="af-toolbar-left">
+            <nav class="af-tabs" id="af-tabs">
+              <button type="button" class="af-tab active" data-view="dashboard"><i class="fa-solid fa-house"></i> ダッシュボード</button>
+              <button type="button" class="af-tab" data-view="submit"><i class="fa-solid fa-pen-to-square"></i> 申請する</button>
+              <button type="button" class="af-tab" data-view="inbox"><i class="fa-solid fa-inbox"></i> 承認する <span class="af-badge-count" id="inbox-count" hidden>0</span></button>
+            </nav>
+          </div>
+          <div class="af-toolbar-right">
+            <label class="af-role-label">
+              <i class="fa-solid fa-user-gear"></i>
+              ロール:
+              <select id="persona-select" class="af-persona-select"></select>
+            </label>
+            <button type="button" id="qr-btn" class="af-icon-btn" title="このページをスマホで開く">
+              <i class="fa-solid fa-mobile-screen-button"></i> スマホで開く
+            </button>
+            <button type="button" id="reset-btn" class="af-icon-btn ghost" title="デモデータを初期化">
+              <i class="fa-solid fa-rotate-left"></i> リセット
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ビュー本体 -->
+    <section class="af-body-section">
+      <div class="container">
+
+        <!-- ===== ダッシュボード ===== -->
+        <div id="view-dashboard" class="af-view">
+          <div class="af-cards">
+            <!-- 承認待ちカード -->
+            <div class="af-card af-card-inbox">
+              <div class="af-card-head">
+                <i class="fa-solid fa-inbox"></i>
+                <h3>あなた宛ての承認待ち</h3>
+              </div>
+              <div class="af-card-num" id="dash-pending-count">0</div>
+              <div class="af-card-sub">件の申請が承認待ちです</div>
+              <button type="button" class="af-card-cta" data-jump="inbox">承認する画面へ →</button>
+            </div>
+            <!-- 自分が起票したカード -->
+            <div class="af-card af-card-mine">
+              <div class="af-card-head">
+                <i class="fa-solid fa-paper-plane"></i>
+                <h3>あなたが起票した申請</h3>
+              </div>
+              <div class="af-card-stats">
+                <div class="af-stat"><span class="num" id="dash-mine-pending">0</span><span class="lbl">承認中</span></div>
+                <div class="af-stat ok"><span class="num" id="dash-mine-approved">0</span><span class="lbl">承認済</span></div>
+                <div class="af-stat ng"><span class="num" id="dash-mine-rejected">0</span><span class="lbl">差戻し</span></div>
+              </div>
+              <button type="button" class="af-card-cta" data-jump="submit">新しく申請する →</button>
+            </div>
+          </div>
+
+          <!-- 全申請一覧（ロール問わず） -->
+          <div class="af-list-block">
+            <div class="af-list-head">
+              <h3><i class="fa-solid fa-list-check"></i> 全申請一覧</h3>
+              <span class="af-list-hint">ロールを切り替えると、自分の関与する申請が変わります</span>
+            </div>
+            <ul id="dash-all-list" class="af-list"></ul>
+          </div>
+        </div>
+
+        <!-- ===== 申請する ===== -->
+        <div id="view-submit" class="af-view" hidden>
+          <!-- ステップ1: テンプレート選択 -->
+          <div id="submit-step1" class="af-substep">
+            <h2 class="af-section-title">1. 申請の種類を選択</h2>
+            <div id="template-grid" class="af-template-grid"></div>
+          </div>
+          <!-- ステップ2: フォーム入力 -->
+          <div id="submit-step2" class="af-substep" hidden>
+            <button type="button" class="af-back-btn" id="form-back-btn"><i class="fa-solid fa-chevron-left"></i> 種類選択に戻る</button>
+            <h2 class="af-section-title"><span id="form-template-title"></span></h2>
+            <p id="form-template-summary" class="af-form-summary"></p>
+            <form id="submit-form" class="af-form" novalidate>
+              <div id="form-fields"></div>
+
+              <!-- 承認ルート プレビュー -->
+              <div class="af-route-preview">
+                <h4><i class="fa-solid fa-route"></i> 承認ルート（入力内容に応じて自動表示）</h4>
+                <p class="af-route-rule" id="route-rule-text">条件を入力すると、ここに承認ルートが表示されます。</p>
+                <div id="route-steps" class="af-steps"></div>
+              </div>
+
+              <div class="af-form-actions">
+                <button type="submit" class="action-btn submit"><i class="fa-solid fa-paper-plane"></i> 承認申請</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ===== 承認する（Inbox） ===== -->
+        <div id="view-inbox" class="af-view" hidden>
+          <div class="af-inbox-layout">
+            <aside class="af-inbox-list-pane">
+              <h3 class="af-inbox-title"><i class="fa-solid fa-inbox"></i> 承認待ち</h3>
+              <ul id="inbox-list" class="af-inbox-list"></ul>
+              <p id="inbox-empty" class="af-inbox-empty" hidden>承認待ちの申請はありません。</p>
+            </aside>
+            <article class="af-inbox-detail-pane" id="inbox-detail">
+              <div class="af-inbox-placeholder">
+                <i class="fa-solid fa-arrow-left"></i>
+                <p>左の一覧から申請を選択してください。</p>
+              </div>
+            </article>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 解説（Salesforce相当機能の訴求） -->
+    <section class="af-explain-section">
+      <div class="container">
+        <h3><i class="fa-solid fa-circle-info"></i> このデモが模した Salesforce 機能</h3>
+        <ul class="af-explain-list">
+          <li><strong>Approval Process（承認プロセス）</strong>：申請 → 承認者ルーティング → 承認/却下 → 監査履歴という一連のワークフロー</li>
+          <li><strong>承認ルール（Entry Criteria / Step Criteria）</strong>：金額や雇用形態など、申請内容に応じて承認ルートを自動分岐</li>
+          <li><strong>承認履歴（Approval History）</strong>：誰が・いつ・どのアクションを取ったか（コメント付き）の監査ログ</li>
+          <li><strong>連続承認（Sequential Approval）</strong>：1次承認者 → 2次承認者 → 最終承認者と段階的に承認が回る仕組み</li>
+        </ul>
+        <p class="af-explain-note">
+          上記はSalesforceの標準機能（要ライセンス）です。御社専用版では、<strong>御社の承認ルール・組織図・申請フォーム</strong>に合わせた設計が可能です。Slack/Teams通知・モバイル承認・PDF生成などの拡張も組み合わせられます。
+        </p>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="af-cta-section">
+      <div class="container text-center">
+        <h2>御社の承認フローを月額ライセンス料ゼロで構築</h2>
+        <p>
+          代表が大規模CRMで承認ワークフローを10年以上設計・実装してきた経験を活かし、<br />
+          御社の業務に合わせた承認システムを設計・構築します。
+        </p>
+        <div class="cta-buttons">
+          <a href="/free-diagnosis" class="btn-primary">無料AI診断を受ける（0円）</a>
+          <a href="/document-editor" class="btn-ghost">書類添削ツールも見る</a>
+          <a href="/service" class="btn-ghost">サービスメニューを見る</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- QRコード モーダル -->
+    <div id="qr-modal" class="af-modal" hidden>
+      <div class="af-modal-backdrop" data-modal-close></div>
+      <div class="af-modal-card">
+        <button type="button" class="af-modal-close" data-modal-close aria-label="閉じる"><i class="fa-solid fa-xmark"></i></button>
+        <h3><i class="fa-solid fa-mobile-screen-button"></i> このページをスマホで開く</h3>
+        <p class="af-modal-sub">
+          上長は移動中にスマホで承認することも多いものです。<br />
+          下のQRコードをスマホのカメラで読み取れば、その場で承認画面に飛べます。
+        </p>
+        <div class="af-qr-img" id="qr-img"></div>
+        <p class="af-qr-url" id="qr-url"></p>
+        <p class="af-qr-hint">※デモのため、スマホ側でも同じロール切替が可能です（実運用では権限制御を入れます）。</p>
+      </div>
+    </div>
+
+    <!-- 通知トースト -->
+    <div id="toast" class="af-toast" hidden></div>
+  </main>
+</Layout>
+
+<script>
+  // ============================================================
+  // 型定義
+  // ============================================================
+  type RoleSlot = 'submitter' | 'approver1' | 'approver2' | 'approver3';
+  interface Persona {
+    id: string;
+    role: RoleSlot;
+    name: string;
+    title: string;
+    icon: string;
+  }
+  interface FormField {
+    key: string;
+    label: string;
+    type: 'text' | 'number' | 'date' | 'select' | 'textarea';
+    placeholder?: string;
+    options?: string[];
+  }
+  interface Rule {
+    when: string;
+    route: string[];
+    label: string;
+  }
+  interface Template {
+    id: string;
+    title: string;
+    icon: string;
+    summary: string;
+    fields: FormField[];
+    rules: Rule[];
+  }
+  interface SeedItem {
+    templateId: string;
+    title: string;
+    submitterId: string;
+    fields: Record<string, string | number>;
+    status: 'pending' | 'approved' | 'rejected';
+    currentStep?: number;
+    createdDaysAgo: number;
+    history: { type: 'submit' | 'approve' | 'reject'; byId: string; comment: string; daysAgo: number }[];
+  }
+  interface Bundle {
+    personas: Persona[];
+    templates: Template[];
+    seed: SeedItem[];
+  }
+  type ActionType = 'submit' | 'approve' | 'reject' | 'recall';
+  interface ActionLog {
+    type: ActionType;
+    byId: string;
+    comment: string;
+    at: string;
+  }
+  interface Request {
+    id: string;
+    templateId: string;
+    title: string;
+    submitterId: string;
+    fields: Record<string, string | number>;
+    route: string[];          // 承認者ID配列
+    currentStep: number;      // 0始まり, route.length で完了
+    status: 'pending' | 'approved' | 'rejected' | 'recalled';
+    history: ActionLog[];
+    createdAt: string;
+  }
+
+  const STORAGE_KEY = 'optiens:approval-flow:v1';
+  const PERSONA_KEY = 'optiens:approval-flow:persona';
+
+  // ============================================================
+  // DOM参照
+  // ============================================================
+  const personaSelect = document.getElementById('persona-select') as HTMLSelectElement;
+  const tabsEl = document.getElementById('af-tabs') as HTMLElement;
+  const inboxCountBadge = document.getElementById('inbox-count') as HTMLSpanElement;
+
+  const viewDashboard = document.getElementById('view-dashboard') as HTMLDivElement;
+  const viewSubmit = document.getElementById('view-submit') as HTMLDivElement;
+  const viewInbox = document.getElementById('view-inbox') as HTMLDivElement;
+
+  const dashPending = document.getElementById('dash-pending-count') as HTMLDivElement;
+  const dashMinePending = document.getElementById('dash-mine-pending') as HTMLDivElement;
+  const dashMineApproved = document.getElementById('dash-mine-approved') as HTMLDivElement;
+  const dashMineRejected = document.getElementById('dash-mine-rejected') as HTMLDivElement;
+  const dashAllList = document.getElementById('dash-all-list') as HTMLUListElement;
+
+  const submitStep1 = document.getElementById('submit-step1') as HTMLDivElement;
+  const submitStep2 = document.getElementById('submit-step2') as HTMLDivElement;
+  const templateGrid = document.getElementById('template-grid') as HTMLDivElement;
+  const formBackBtn = document.getElementById('form-back-btn') as HTMLButtonElement;
+  const formTemplateTitle = document.getElementById('form-template-title') as HTMLSpanElement;
+  const formTemplateSummary = document.getElementById('form-template-summary') as HTMLParagraphElement;
+  const submitForm = document.getElementById('submit-form') as HTMLFormElement;
+  const formFields = document.getElementById('form-fields') as HTMLDivElement;
+  const routeRuleText = document.getElementById('route-rule-text') as HTMLParagraphElement;
+  const routeSteps = document.getElementById('route-steps') as HTMLDivElement;
+
+  const inboxList = document.getElementById('inbox-list') as HTMLUListElement;
+  const inboxEmpty = document.getElementById('inbox-empty') as HTMLParagraphElement;
+  const inboxDetail = document.getElementById('inbox-detail') as HTMLElement;
+
+  const qrBtn = document.getElementById('qr-btn') as HTMLButtonElement;
+  const qrModal = document.getElementById('qr-modal') as HTMLDivElement;
+  const qrImg = document.getElementById('qr-img') as HTMLDivElement;
+  const qrUrl = document.getElementById('qr-url') as HTMLParagraphElement;
+
+  const resetBtn = document.getElementById('reset-btn') as HTMLButtonElement;
+  const toastEl = document.getElementById('toast') as HTMLDivElement;
+
+  // ============================================================
+  // 状態
+  // ============================================================
+  let bundle: Bundle | null = null;
+  let requests: Request[] = [];
+  let currentPersonaId = '';
+  let currentView: 'dashboard' | 'submit' | 'inbox' = 'dashboard';
+  let selectedTemplate: Template | null = null;
+  let selectedRequestId: string | null = null;
+
+  // ============================================================
+  // 初期化
+  // ============================================================
+  async function init() {
+    try {
+      const res = await fetch('/samples/approval-templates.json');
+      bundle = await res.json();
+    } catch {
+      showToast('テンプレート定義の読み込みに失敗しました', 'error');
+      return;
+    }
+    if (!bundle) return;
+
+    // ペルソナセレクタ
+    personaSelect.innerHTML = '';
+    for (const p of bundle.personas) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = `${p.name}（${p.title}）`;
+      personaSelect.appendChild(o);
+    }
+    currentPersonaId = localStorage.getItem(PERSONA_KEY) || bundle.personas[0]!.id;
+    personaSelect.value = currentPersonaId;
+    personaSelect.addEventListener('change', () => {
+      currentPersonaId = personaSelect.value;
+      localStorage.setItem(PERSONA_KEY, currentPersonaId);
+      renderAll();
+    });
+
+    // データ読み込み or seed
+    requests = loadRequests();
+    if (requests.length === 0) {
+      requests = generateSeed();
+      saveRequests();
+    }
+
+    bindTabs();
+    bindSubmitFlow();
+    bindQR();
+    bindReset();
+    bindModalClose();
+
+    // URLハッシュからビュー復元
+    const hash = location.hash.replace('#', '');
+    if (hash === 'submit' || hash === 'inbox' || hash === 'dashboard') {
+      switchView(hash);
+    }
+
+    renderAll();
+  }
+
+  // ============================================================
+  // localStorage
+  // ============================================================
+  function loadRequests(): Request[] {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  function saveRequests() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
+    } catch {}
+  }
+
+  function generateSeed(): Request[] {
+    if (!bundle) return [];
+    const now = Date.now();
+    const out: Request[] = [];
+    for (const s of bundle.seed) {
+      const tpl = bundle.templates.find(t => t.id === s.templateId)!;
+      const route = matchRoute(tpl, s.fields)?.route || [];
+      const r: Request = {
+        id: cryptoId(),
+        templateId: s.templateId,
+        title: s.title,
+        submitterId: s.submitterId,
+        fields: s.fields,
+        route,
+        currentStep: s.status === 'approved' ? route.length : (s.currentStep ?? 0),
+        status: s.status,
+        history: s.history.map(h => ({
+          type: h.type,
+          byId: h.byId,
+          comment: h.comment,
+          at: new Date(now - h.daysAgo * 86400000).toISOString(),
+        })),
+        createdAt: new Date(now - s.createdDaysAgo * 86400000).toISOString(),
+      };
+      out.push(r);
+    }
+    return out;
+  }
+
+  function cryptoId(): string {
+    return 'req-' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
+  }
+
+  // ============================================================
+  // ルート判定（Salesforceの承認ルール相当）
+  // ============================================================
+  function matchRoute(tpl: Template, fields: Record<string, string | number>): Rule | null {
+    for (const rule of tpl.rules) {
+      if (evalCondition(rule.when, fields)) return rule;
+    }
+    return null;
+  }
+
+  function evalCondition(when: string, fields: Record<string, string | number>): boolean {
+    // 安全のためにJS全式評価ではなく単純パーサで実装
+    // 形式: <key> <op> <value>  例: amount <= 50000 / employmentType == '正社員'
+    const m = when.match(/^\s*(\w+)\s*(<=|>=|<|>|==|!=)\s*(.+?)\s*$/);
+    if (!m) return false;
+    const [, key, op, rhsRaw] = m;
+    const lhs = fields[key];
+    let rhs: string | number = rhsRaw;
+    const strMatch = rhsRaw.match(/^['"](.*)['"]$/);
+    if (strMatch) {
+      rhs = strMatch[1];
+    } else if (!isNaN(Number(rhsRaw))) {
+      rhs = Number(rhsRaw);
+    }
+    const ln = typeof lhs === 'number' ? lhs : Number(lhs);
+    const rn = typeof rhs === 'number' ? rhs : Number(rhs);
+    switch (op) {
+      case '<=': return ln <= rn;
+      case '>=': return ln >= rn;
+      case '<':  return ln <  rn;
+      case '>':  return ln >  rn;
+      case '==': return String(lhs) === String(rhs);
+      case '!=': return String(lhs) !== String(rhs);
+    }
+    return false;
+  }
+
+  // ============================================================
+  // ビュー切替
+  // ============================================================
+  function bindTabs() {
+    tabsEl.querySelectorAll('.af-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = (btn as HTMLElement).dataset.view as 'dashboard' | 'submit' | 'inbox';
+        switchView(v);
+      });
+    });
+    // ダッシュボードからのジャンプCTA
+    document.querySelectorAll('[data-jump]').forEach(el => {
+      el.addEventListener('click', () => {
+        const v = (el as HTMLElement).dataset.jump as 'dashboard' | 'submit' | 'inbox';
+        switchView(v);
+      });
+    });
+  }
+
+  function switchView(v: 'dashboard' | 'submit' | 'inbox') {
+    currentView = v;
+    viewDashboard.hidden = v !== 'dashboard';
+    viewSubmit.hidden = v !== 'submit';
+    viewInbox.hidden = v !== 'inbox';
+    tabsEl.querySelectorAll('.af-tab').forEach(b => {
+      b.classList.toggle('active', (b as HTMLElement).dataset.view === v);
+    });
+    if (v === 'submit') {
+      // 申請ビューは常に「テンプレ選択」から
+      selectedTemplate = null;
+      submitStep1.hidden = false;
+      submitStep2.hidden = true;
+    }
+    history.replaceState(null, '', '#' + v);
+    renderAll();
+  }
+
+  // ============================================================
+  // 申請フロー
+  // ============================================================
+  function bindSubmitFlow() {
+    formBackBtn.addEventListener('click', () => {
+      selectedTemplate = null;
+      submitStep1.hidden = false;
+      submitStep2.hidden = true;
+    });
+    submitForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      handleSubmitRequest();
+    });
+  }
+
+  function renderTemplateGrid() {
+    if (!bundle) return;
+    templateGrid.innerHTML = '';
+    for (const tpl of bundle.templates) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'af-template-card';
+      card.innerHTML = `
+        <div class="af-tpl-icon"><i class="fa-solid ${escapeHtml(tpl.icon)}"></i></div>
+        <h4>${escapeHtml(tpl.title)}</h4>
+        <p>${escapeHtml(tpl.summary)}</p>
+        <div class="af-tpl-rules">
+          ${tpl.rules.map(r => `<span class="af-tpl-rule">${escapeHtml(r.label)}</span>`).join('')}
+        </div>
+      `;
+      card.addEventListener('click', () => openForm(tpl));
+      templateGrid.appendChild(card);
+    }
+  }
+
+  function openForm(tpl: Template) {
+    selectedTemplate = tpl;
+    submitStep1.hidden = true;
+    submitStep2.hidden = false;
+    formTemplateTitle.textContent = tpl.title;
+    formTemplateSummary.textContent = tpl.summary;
+
+    formFields.innerHTML = '';
+    for (const f of tpl.fields) {
+      const row = document.createElement('div');
+      row.className = 'af-field';
+      const id = 'field-' + f.key;
+      let inputHtml = '';
+      if (f.type === 'select') {
+        inputHtml = `<select id="${id}" name="${f.key}" required>
+          <option value="">選択してください</option>
+          ${(f.options || []).map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('')}
+        </select>`;
+      } else if (f.type === 'textarea') {
+        inputHtml = `<textarea id="${id}" name="${f.key}" rows="3" placeholder="${escapeHtml(f.placeholder || '')}"></textarea>`;
+      } else {
+        inputHtml = `<input id="${id}" name="${f.key}" type="${f.type}" placeholder="${escapeHtml(f.placeholder || '')}" ${f.type === 'number' ? 'min="0"' : ''} required>`;
+      }
+      row.innerHTML = `
+        <label for="${id}">${escapeHtml(f.label)}</label>
+        ${inputHtml}
+      `;
+      formFields.appendChild(row);
+    }
+
+    // ルートプレビューの初期表示 + 入力監視
+    submitForm.addEventListener('input', updateRoutePreview);
+    submitForm.addEventListener('change', updateRoutePreview);
+    updateRoutePreview();
+  }
+
+  function getFormFieldValues(): Record<string, string | number> {
+    if (!selectedTemplate) return {};
+    const values: Record<string, string | number> = {};
+    for (const f of selectedTemplate.fields) {
+      const el = (submitForm.elements.namedItem(f.key)) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+      if (!el) continue;
+      const v = el.value;
+      if (f.type === 'number') {
+        values[f.key] = v === '' ? 0 : Number(v);
+      } else {
+        values[f.key] = v;
+      }
+    }
+    return values;
+  }
+
+  function updateRoutePreview() {
+    if (!selectedTemplate || !bundle) return;
+    const fields = getFormFieldValues();
+    const rule = matchRoute(selectedTemplate, fields);
+    if (!rule) {
+      routeRuleText.textContent = '条件を入力すると、ここに承認ルートが表示されます。';
+      routeSteps.innerHTML = '';
+      return;
+    }
+    routeRuleText.innerHTML = `<i class="fa-solid fa-circle-check"></i> ルール: <strong>${escapeHtml(rule.label)}</strong>`;
+    routeSteps.innerHTML = renderStepsHtml(rule.route, -1, false);
+  }
+
+  function handleSubmitRequest() {
+    if (!selectedTemplate || !bundle) return;
+    const fields = getFormFieldValues();
+    // バリデーション
+    for (const f of selectedTemplate.fields) {
+      const v = fields[f.key];
+      if (v === '' || v === undefined || (f.type === 'number' && (isNaN(Number(v))))) {
+        showToast(`「${f.label}」を入力してください`, 'error');
+        return;
+      }
+    }
+    const rule = matchRoute(selectedTemplate, fields);
+    if (!rule) {
+      showToast('承認ルートを判定できませんでした。入力内容をご確認ください。', 'error');
+      return;
+    }
+    // タイトル自動生成
+    const title = generateTitle(selectedTemplate, fields);
+    const req: Request = {
+      id: cryptoId(),
+      templateId: selectedTemplate.id,
+      title,
+      submitterId: currentPersonaId,
+      fields,
+      route: rule.route,
+      currentStep: 0,
+      status: 'pending',
+      history: [{
+        type: 'submit',
+        byId: currentPersonaId,
+        comment: '申請しました。',
+        at: new Date().toISOString(),
+      }],
+      createdAt: new Date().toISOString(),
+    };
+    requests.unshift(req);
+    saveRequests();
+    showToast(`申請しました（承認ルート：${rule.label}）`, 'success');
+    switchView('dashboard');
+  }
+
+  function generateTitle(tpl: Template, fields: Record<string, string | number>): string {
+    if (tpl.id === 'expense') return `${fields.purpose || '経費申請'}`;
+    if (tpl.id === 'purchase') return `${fields.itemName || '購買稟議'}`;
+    if (tpl.id === 'contract') return `${fields.contractType || '契約'}（${fields.counterparty || ''}）`;
+    if (tpl.id === 'leave') return `${fields.leaveType || '休暇'}（${fields.startDate || ''}〜${fields.endDate || ''}）`;
+    if (tpl.id === 'hire') return `${fields.employmentType || ''}採用：${fields.candidateName || ''}`;
+    return tpl.title;
+  }
+
+  // ============================================================
+  // Inbox（承認者ビュー）
+  // ============================================================
+  function getMyPendingRequests(): Request[] {
+    return requests.filter(r =>
+      r.status === 'pending' &&
+      r.route[r.currentStep] === currentPersonaId
+    );
+  }
+
+  function renderInbox() {
+    const myList = getMyPendingRequests();
+    inboxList.innerHTML = '';
+    inboxEmpty.hidden = myList.length > 0;
+    for (const r of myList) {
+      const li = document.createElement('li');
+      li.className = 'af-inbox-item';
+      if (r.id === selectedRequestId) li.classList.add('selected');
+      const tpl = getTemplate(r.templateId);
+      li.innerHTML = `
+        <div class="af-inbox-item-icon"><i class="fa-solid ${escapeHtml(tpl?.icon || 'fa-file')}"></i></div>
+        <div class="af-inbox-item-body">
+          <div class="af-inbox-item-title">${escapeHtml(r.title)}</div>
+          <div class="af-inbox-item-meta">
+            ${escapeHtml(getPersonaName(r.submitterId))} ・ ${formatRelative(r.createdAt)}
+            ・ ステップ ${r.currentStep + 1}/${r.route.length}
+          </div>
+        </div>
+      `;
+      li.addEventListener('click', () => {
+        selectedRequestId = r.id;
+        renderInbox();
+        renderInboxDetail(r);
+      });
+      inboxList.appendChild(li);
+    }
+    if (myList.length === 0) {
+      selectedRequestId = null;
+      inboxDetail.innerHTML = `
+        <div class="af-inbox-placeholder">
+          <i class="fa-solid fa-circle-check"></i>
+          <p>承認待ちはありません。<br />ロールを切り替えて他の承認者の画面もご確認いただけます。</p>
+        </div>
+      `;
+    } else if (!selectedRequestId || !myList.find(r => r.id === selectedRequestId)) {
+      // 1件目を自動選択
+      selectedRequestId = myList[0]!.id;
+      renderInboxDetail(myList[0]!);
+    } else {
+      const cur = myList.find(r => r.id === selectedRequestId)!;
+      renderInboxDetail(cur);
+    }
+  }
+
+  function renderInboxDetail(r: Request) {
+    const tpl = getTemplate(r.templateId);
+    if (!tpl) return;
+    const stepsHtml = renderStepsHtml(r.route, r.currentStep, r.status === 'approved' || r.status === 'rejected');
+    inboxDetail.innerHTML = `
+      <header class="af-detail-head">
+        <div class="af-detail-title">
+          <i class="fa-solid ${escapeHtml(tpl.icon)}"></i>
+          <h3>${escapeHtml(r.title)}</h3>
+          ${renderStatusBadge(r.status)}
+        </div>
+        <div class="af-detail-meta">
+          申請者: <strong>${escapeHtml(getPersonaName(r.submitterId))}</strong>
+          ・ 申請日時: ${formatDateTime(r.createdAt)}
+        </div>
+      </header>
+
+      <div class="af-detail-section">
+        <h4>承認プロセス</h4>
+        <div class="af-steps">${stepsHtml}</div>
+      </div>
+
+      <div class="af-detail-section">
+        <h4>申請内容</h4>
+        <dl class="af-fields-dl">
+          ${tpl.fields.map(f => `
+            <dt>${escapeHtml(f.label)}</dt>
+            <dd>${escapeHtml(formatFieldValue(f, r.fields[f.key]))}</dd>
+          `).join('')}
+        </dl>
+      </div>
+
+      <div class="af-detail-section">
+        <h4>履歴</h4>
+        <ul class="af-history">
+          ${r.history.map(h => `
+            <li class="af-history-item af-history-${h.type}">
+              <div class="af-history-marker"><i class="fa-solid ${historyIcon(h.type)}"></i></div>
+              <div class="af-history-body">
+                <div class="af-history-head">
+                  <span class="af-history-action">${historyLabel(h.type)}</span>
+                  <span class="af-history-by">${escapeHtml(getPersonaName(h.byId))}</span>
+                  <span class="af-history-time">${formatDateTime(h.at)}</span>
+                </div>
+                ${h.comment ? `<div class="af-history-comment">${escapeHtml(h.comment)}</div>` : ''}
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+
+      ${r.status === 'pending' && r.route[r.currentStep] === currentPersonaId ? `
+      <div class="af-detail-actions">
+        <textarea id="action-comment" rows="2" placeholder="コメント（任意）"></textarea>
+        <div class="af-detail-actions-btns">
+          <button type="button" class="action-btn approve" id="approve-btn"><i class="fa-solid fa-check"></i> 承認</button>
+          <button type="button" class="action-btn reject" id="reject-btn"><i class="fa-solid fa-rotate-left"></i> 差戻し</button>
+        </div>
+      </div>
+      ` : ''}
+    `;
+
+    const approveBtn = document.getElementById('approve-btn');
+    const rejectBtn = document.getElementById('reject-btn');
+    if (approveBtn) approveBtn.addEventListener('click', () => doAction(r.id, 'approve'));
+    if (rejectBtn) rejectBtn.addEventListener('click', () => doAction(r.id, 'reject'));
+  }
+
+  function doAction(reqId: string, type: 'approve' | 'reject') {
+    const r = requests.find(x => x.id === reqId);
+    if (!r) return;
+    const commentEl = document.getElementById('action-comment') as HTMLTextAreaElement | null;
+    const comment = commentEl ? commentEl.value.trim() : '';
+    if (type === 'reject' && !comment) {
+      showToast('差戻しの理由を入力してください', 'error');
+      return;
+    }
+    r.history.push({
+      type,
+      byId: currentPersonaId,
+      comment: comment || (type === 'approve' ? '承認しました。' : ''),
+      at: new Date().toISOString(),
+    });
+    if (type === 'approve') {
+      r.currentStep += 1;
+      if (r.currentStep >= r.route.length) {
+        r.status = 'approved';
+      }
+    } else {
+      r.status = 'rejected';
+    }
+    saveRequests();
+    showToast(type === 'approve' ? '承認しました' : '差戻しました', 'success');
+    selectedRequestId = null;
+    renderAll();
+  }
+
+  // ============================================================
+  // ダッシュボード
+  // ============================================================
+  function renderDashboard() {
+    const myPending = getMyPendingRequests();
+    dashPending.textContent = String(myPending.length);
+
+    const mine = requests.filter(r => r.submitterId === currentPersonaId);
+    dashMinePending.textContent = String(mine.filter(r => r.status === 'pending').length);
+    dashMineApproved.textContent = String(mine.filter(r => r.status === 'approved').length);
+    dashMineRejected.textContent = String(mine.filter(r => r.status === 'rejected').length);
+
+    dashAllList.innerHTML = '';
+    const sorted = [...requests].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    for (const r of sorted) {
+      const tpl = getTemplate(r.templateId);
+      const li = document.createElement('li');
+      li.className = 'af-list-item';
+      const isMine = r.submitterId === currentPersonaId;
+      const isMyTurn = r.status === 'pending' && r.route[r.currentStep] === currentPersonaId;
+      const tagHtml = isMyTurn
+        ? '<span class="af-list-tag af-list-tag-me">あなたの承認待ち</span>'
+        : (isMine ? '<span class="af-list-tag af-list-tag-mine">あなたの起票</span>' : '');
+      li.innerHTML = `
+        <div class="af-list-icon"><i class="fa-solid ${escapeHtml(tpl?.icon || 'fa-file')}"></i></div>
+        <div class="af-list-main">
+          <div class="af-list-title">${escapeHtml(r.title)} ${tagHtml}</div>
+          <div class="af-list-meta">
+            ${escapeHtml(getPersonaName(r.submitterId))} ・ ${formatRelative(r.createdAt)}
+            ${r.status === 'pending' ? `・ 次の承認者: ${escapeHtml(getPersonaName(r.route[r.currentStep] || ''))}` : ''}
+          </div>
+        </div>
+        <div class="af-list-status">${renderStatusBadge(r.status)}</div>
+      `;
+      dashAllList.appendChild(li);
+    }
+  }
+
+  // ============================================================
+  // 共通レンダリング
+  // ============================================================
+  function renderStepsHtml(route: string[], currentStep: number, finished: boolean): string {
+    const items = route.map((approverId, i) => {
+      let cls = 'af-step';
+      if (finished) cls += ' done';
+      else if (i < currentStep) cls += ' done';
+      else if (i === currentStep) cls += ' current';
+      else cls += ' pending';
+      const persona = bundle?.personas.find(p => p.id === approverId);
+      return `
+        <div class="${cls}">
+          <div class="af-step-circle">${i + 1}</div>
+          <div class="af-step-body">
+            <div class="af-step-name">${escapeHtml(persona?.name || approverId)}</div>
+            <div class="af-step-title">${escapeHtml(persona?.title || '')}</div>
+          </div>
+        </div>
+      `;
+    });
+    return items.join('<div class="af-step-arrow"><i class="fa-solid fa-chevron-right"></i></div>');
+  }
+
+  function renderStatusBadge(status: Request['status']): string {
+    if (status === 'pending') return `<span class="af-status-badge st-pending">承認中</span>`;
+    if (status === 'approved') return `<span class="af-status-badge st-approved">承認済</span>`;
+    if (status === 'rejected') return `<span class="af-status-badge st-rejected">差戻し</span>`;
+    return `<span class="af-status-badge st-recalled">取消</span>`;
+  }
+
+  function renderAll() {
+    renderTemplateGrid();
+    renderDashboard();
+    renderInbox();
+    // Inboxバッジ
+    const cnt = getMyPendingRequests().length;
+    if (cnt > 0) {
+      inboxCountBadge.textContent = String(cnt);
+      inboxCountBadge.hidden = false;
+    } else {
+      inboxCountBadge.hidden = true;
+    }
+  }
+
+  // ============================================================
+  // ヘルパ
+  // ============================================================
+  function getTemplate(id: string): Template | undefined {
+    return bundle?.templates.find(t => t.id === id);
+  }
+  function getPersonaName(id: string): string {
+    const p = bundle?.personas.find(p => p.id === id);
+    return p ? `${p.name}（${p.title}）` : id;
+  }
+  function formatFieldValue(f: FormField, v: string | number | undefined): string {
+    if (v === undefined || v === '') return '—';
+    if (f.type === 'number') {
+      return Number(v).toLocaleString('ja-JP') + (f.label.includes('円') ? ' 円' : '');
+    }
+    return String(v);
+  }
+  function formatDateTime(iso: string): string {
+    const d = new Date(iso);
+    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function formatRelative(iso: string): string {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diffMs / 86400000);
+    const hours = Math.floor(diffMs / 3600000);
+    const mins = Math.floor(diffMs / 60000);
+    if (days >= 1) return `${days}日前`;
+    if (hours >= 1) return `${hours}時間前`;
+    if (mins >= 1) return `${mins}分前`;
+    return 'たった今';
+  }
+  function pad(n: number) { return String(n).padStart(2, '0'); }
+  function historyIcon(t: ActionType): string {
+    if (t === 'submit') return 'fa-paper-plane';
+    if (t === 'approve') return 'fa-check';
+    if (t === 'reject') return 'fa-rotate-left';
+    return 'fa-xmark';
+  }
+  function historyLabel(t: ActionType): string {
+    if (t === 'submit') return '申請';
+    if (t === 'approve') return '承認';
+    if (t === 'reject') return '差戻し';
+    return '取消';
+  }
+  function escapeHtml(s: string | number | undefined | null): string {
+    if (s === undefined || s === null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ============================================================
+  // QRコード
+  // ============================================================
+  function bindQR() {
+    qrBtn.addEventListener('click', () => {
+      const url = location.href.split('#')[0];
+      qrUrl.textContent = url;
+      const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=8&data=${encodeURIComponent(url)}`;
+      qrImg.innerHTML = `<img src="${qrSrc}" alt="QRコード" loading="lazy" />`;
+      qrModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+    });
+  }
+
+  function bindModalClose() {
+    document.querySelectorAll('[data-modal-close]').forEach(el => {
+      el.addEventListener('click', () => {
+        qrModal.hidden = true;
+        document.body.style.overflow = '';
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !qrModal.hidden) {
+        qrModal.hidden = true;
+        document.body.style.overflow = '';
+      }
+    });
+  }
+
+  // ============================================================
+  // リセット
+  // ============================================================
+  function bindReset() {
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('デモデータを初期状態に戻します。よろしいですか？')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      requests = generateSeed();
+      saveRequests();
+      selectedRequestId = null;
+      showToast('デモデータをリセットしました', 'success');
+      renderAll();
+    });
+  }
+
+  // ============================================================
+  // トースト
+  // ============================================================
+  function showToast(msg: string, type: 'success' | 'error' = 'success') {
+    toastEl.textContent = msg;
+    toastEl.className = 'af-toast af-toast-' + type;
+    toastEl.hidden = false;
+    setTimeout(() => { toastEl.hidden = true; }, 2400);
+  }
+
+  init();
+</script>
+
+<style>
+  .af-main {
+    padding-top: 80px;
+  }
+
+  /* ヒーロー */
+  .af-hero {
+    padding: clamp(40px, 6vw, 64px) 0 clamp(20px, 3vw, 32px);
+    background: var(--surface);
+  }
+  .hero-eyebrow {
+    font-size: clamp(11px, 1.2vw, 13px);
+    font-weight: 600;
+    letter-spacing: .25em;
+    color: var(--brand);
+    margin: 0 0 12px;
+    text-transform: uppercase;
+  }
+  .af-hero h1 {
+    color: var(--heading);
+    font-size: clamp(1.5rem, 4vw, 2.4rem);
+    margin: 0 0 16px;
+  }
+  .af-hero .hero-sub {
+    color: var(--muted);
+    font-size: clamp(.9rem, 1.6vw, 1.05rem);
+    line-height: 1.85;
+    margin: 0 auto;
+    max-width: 760px;
+  }
+
+  /* ツールバー */
+  .af-toolbar-section {
+    background: var(--surface);
+    padding: 8px 0 0;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 64px;
+    z-index: 30;
+  }
+  .af-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    flex-wrap: wrap;
+  }
+  .af-toolbar-left, .af-toolbar-right {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+
+  /* タブ */
+  .af-tabs { display: flex; gap: 4px; }
+  .af-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .af-tab:hover { border-color: var(--brand); color: var(--brand); }
+  .af-tab.active {
+    background: var(--brand);
+    color: #fff;
+    border-color: var(--brand);
+  }
+  .af-badge-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    padding: 0 5px;
+    height: 18px;
+    border-radius: 999px;
+    background: #F24E1E;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+
+  /* ロール選択 */
+  .af-role-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .af-role-label i { color: var(--brand); }
+  .af-persona-select {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: var(--surface);
+    color: var(--text);
+    min-width: 200px;
+  }
+  .af-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .af-icon-btn:hover { border-color: var(--brand); color: var(--brand); }
+  .af-icon-btn.ghost { color: var(--muted); }
+
+  /* ビュー本体 */
+  .af-body-section {
+    padding: clamp(24px, 4vw, 40px) 0 clamp(40px, 5vw, 56px);
+    background: var(--surface-2);
+    min-height: 60vh;
+  }
+  .af-view { display: block; }
+  .af-view[hidden] { display: none; }
+
+  /* ダッシュボード */
+  .af-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .af-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .af-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .af-card-head i { color: var(--brand); font-size: 1.2rem; }
+  .af-card-head h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--heading);
+  }
+  .af-card-num {
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: var(--brand);
+    line-height: 1;
+    margin: 8px 0 4px;
+  }
+  .af-card-inbox .af-card-num { color: #F24E1E; }
+  .af-card-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .af-card-cta {
+    background: transparent;
+    border: 1px solid var(--brand);
+    color: var(--brand);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .af-card-cta:hover { background: var(--brand); color: #fff; }
+
+  .af-card-stats {
+    display: flex;
+    gap: 14px;
+    margin: 14px 0 18px;
+  }
+  .af-stat {
+    flex: 1;
+    text-align: center;
+    padding: 10px 6px;
+    background: var(--surface-2);
+    border-radius: 8px;
+  }
+  .af-stat .num {
+    display: block;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--heading);
+    line-height: 1.1;
+  }
+  .af-stat .lbl {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .af-stat.ok .num { color: #0ACF83; }
+  .af-stat.ng .num { color: #F24E1E; }
+
+  /* 一覧 */
+  .af-list-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .af-list-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .af-list-head h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--heading);
+  }
+  .af-list-head h3 i { color: var(--brand); margin-right: 6px; }
+  .af-list-hint { font-size: 0.75rem; color: var(--muted); }
+  .af-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .af-list-item {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    align-items: center;
+  }
+  .af-list-icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(162, 89, 255, 0.10);
+    border-radius: 8px;
+    color: var(--brand);
+  }
+  .af-list-title {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--heading);
+    margin-bottom: 3px;
+  }
+  .af-list-meta { font-size: 0.75rem; color: var(--muted); }
+  .af-list-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+  .af-list-tag-me { background: #F24E1E; color: #fff; }
+  .af-list-tag-mine { background: rgba(162, 89, 255, 0.15); color: var(--brand); }
+
+  /* テンプレート選択 */
+  .af-section-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin: 0 0 14px;
+  }
+  .af-template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .af-template-card {
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 18px 14px;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .af-template-card:hover {
+    border-color: var(--brand);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(162, 89, 255, 0.15);
+  }
+  .af-tpl-icon {
+    width: 42px; height: 42px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(162, 89, 255, 0.10);
+    border-radius: 10px;
+    color: var(--brand);
+    font-size: 1.2rem;
+  }
+  .af-template-card h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 4px 0 0;
+    color: var(--heading);
+  }
+  .af-template-card p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.65;
+    margin: 0;
+  }
+  .af-tpl-rules {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .af-tpl-rule {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* フォーム */
+  .af-back-btn {
+    background: transparent;
+    border: none;
+    color: var(--brand);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+  .af-back-btn:hover { text-decoration: underline; }
+  .af-form-summary {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin: 0 0 20px;
+    line-height: 1.7;
+  }
+  .af-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+  }
+  .af-field { margin-bottom: 16px; }
+  .af-field label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--heading);
+    margin-bottom: 6px;
+  }
+  .af-field input,
+  .af-field select,
+  .af-field textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: var(--surface);
+    color: var(--text);
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  .af-field textarea { resize: vertical; }
+  .af-field input:focus,
+  .af-field select:focus,
+  .af-field textarea:focus {
+    outline: 2px solid var(--brand);
+    outline-offset: -1px;
+  }
+
+  .af-route-preview {
+    margin: 22px 0 14px;
+    padding: 16px 18px;
+    background: var(--surface-2);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+  }
+  .af-route-preview h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin: 0 0 10px;
+  }
+  .af-route-preview h4 i { color: var(--brand); margin-right: 6px; }
+  .af-route-rule {
+    font-size: 0.85rem;
+    color: var(--text);
+    margin: 0 0 12px;
+  }
+  .af-route-rule i { color: #0ACF83; margin-right: 4px; }
+
+  /* ステップフロー */
+  .af-steps {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .af-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    min-width: 0;
+  }
+  .af-step-circle {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    background: var(--surface-2);
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .af-step.done .af-step-circle { background: #0ACF83; color: #fff; }
+  .af-step.current .af-step-circle {
+    background: var(--brand);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(162, 89, 255, 0.20);
+    animation: pulseStep 1.6s ease-in-out infinite;
+  }
+  @keyframes pulseStep {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(162, 89, 255, 0.20); }
+    50% { box-shadow: 0 0 0 8px rgba(162, 89, 255, 0.05); }
+  }
+  .af-step.current { border-color: var(--brand); background: rgba(162, 89, 255, 0.06); }
+  .af-step-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--heading);
+    line-height: 1.2;
+  }
+  .af-step-title {
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .af-step-arrow {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .af-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s, transform .2s;
+  }
+  .action-btn:hover { opacity: .9; transform: translateY(-1px); }
+  .action-btn.submit { background: #1ABCFE; color: #fff; }
+  .action-btn.approve { background: #0ACF83; color: #fff; }
+  .action-btn.reject { background: #F24E1E; color: #fff; }
+
+  /* Inbox */
+  .af-inbox-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .af-inbox-list-pane {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    position: sticky;
+    top: 130px;
+  }
+  .af-inbox-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin: 0 0 12px;
+  }
+  .af-inbox-title i { color: var(--brand); margin-right: 6px; }
+  .af-inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .af-inbox-item {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .af-inbox-item:hover { border-color: var(--brand); }
+  .af-inbox-item.selected {
+    border-color: var(--brand);
+    background: rgba(162, 89, 255, 0.06);
+  }
+  .af-inbox-item-icon {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(162, 89, 255, 0.10);
+    border-radius: 6px;
+    color: var(--brand);
+    font-size: 0.9rem;
+  }
+  .af-inbox-item-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--heading);
+    margin-bottom: 2px;
+  }
+  .af-inbox-item-meta {
+    font-size: 0.7rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .af-inbox-empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 20px 0;
+  }
+  .af-inbox-detail-pane {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    min-height: 300px;
+  }
+  .af-inbox-placeholder {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+  }
+  .af-inbox-placeholder i {
+    font-size: 1.6rem;
+    color: var(--brand);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  /* 詳細 */
+  .af-detail-head {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .af-detail-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .af-detail-title i {
+    color: var(--brand);
+    font-size: 1.2rem;
+  }
+  .af-detail-title h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin: 0;
+  }
+  .af-detail-meta {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .af-detail-meta strong { color: var(--text); }
+  .af-detail-section { margin-bottom: 18px; }
+  .af-detail-section h4 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin: 0 0 10px;
+  }
+  .af-fields-dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 6px 16px;
+  }
+  .af-fields-dl dt {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .af-fields-dl dd {
+    font-size: 0.85rem;
+    color: var(--text);
+    margin: 0;
+    word-break: break-word;
+  }
+
+  .af-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .af-status-badge.st-pending { background: rgba(26, 188, 254, 0.12); color: #1ABCFE; }
+  .af-status-badge.st-approved { background: rgba(10, 207, 131, 0.12); color: #0ACF83; }
+  .af-status-badge.st-rejected { background: rgba(242, 78, 30, 0.12); color: #F24E1E; }
+  .af-status-badge.st-recalled { background: rgba(107, 114, 128, 0.12); color: #6B7280; }
+
+  /* 履歴 */
+  .af-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .af-history-item {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+  }
+  .af-history-marker {
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .af-history-submit .af-history-marker { background: #1ABCFE; }
+  .af-history-approve .af-history-marker { background: #0ACF83; }
+  .af-history-reject .af-history-marker { background: #F24E1E; }
+  .af-history-head {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 0.78rem;
+  }
+  .af-history-action { font-weight: 700; color: var(--heading); }
+  .af-history-by { color: var(--text); }
+  .af-history-time { color: var(--muted); font-size: 0.72rem; margin-left: auto; }
+  .af-history-comment {
+    margin-top: 4px;
+    font-size: 0.82rem;
+    color: var(--text);
+    background: var(--surface-2);
+    padding: 8px 10px;
+    border-radius: 6px;
+    line-height: 1.6;
+  }
+
+  /* アクションバー */
+  .af-detail-actions {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .af-detail-actions textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+  }
+  .af-detail-actions-btns {
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+
+  /* 解説セクション */
+  .af-explain-section {
+    background: var(--surface);
+    padding: clamp(36px, 5vw, 56px) 0;
+    border-top: 1px solid var(--border);
+  }
+  .af-explain-section h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin: 0 0 14px;
+  }
+  .af-explain-section h3 i { color: var(--brand); margin-right: 8px; }
+  .af-explain-list {
+    margin: 0 0 16px;
+    padding-left: 20px;
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.85;
+  }
+  .af-explain-list li { margin-bottom: 6px; }
+  .af-explain-list strong { color: var(--brand); font-weight: 700; }
+  .af-explain-note {
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.85;
+    padding: 14px 16px;
+    background: var(--surface-2);
+    border-left: 3px solid var(--brand);
+    border-radius: 0 6px 6px 0;
+    margin: 0;
+  }
+
+  /* CTA */
+  .af-cta-section {
+    padding: clamp(48px, 7vw, 80px) 0;
+    background: var(--surface-2);
+  }
+  .af-cta-section h2 {
+    color: var(--heading);
+    font-size: clamp(1.2rem, 3vw, 1.7rem);
+    margin: 0 0 16px;
+  }
+  .af-cta-section p {
+    color: var(--muted);
+    font-size: clamp(.9rem, 1.5vw, 1rem);
+    line-height: 1.85;
+    margin: 0 0 28px;
+  }
+  .cta-buttons {
+    display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+  }
+
+  /* QRモーダル */
+  .af-modal {
+    position: fixed; inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .af-modal[hidden] { display: none; }
+  .af-modal-backdrop {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.5);
+    cursor: pointer;
+  }
+  .af-modal-card {
+    position: relative;
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 28px 28px 24px;
+    max-width: 360px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    text-align: center;
+  }
+  .af-modal-close {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+  }
+  .af-modal-close:hover { background: var(--surface-2); color: var(--heading); }
+  .af-modal-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--heading);
+    margin: 0 0 10px;
+  }
+  .af-modal-card h3 i { color: var(--brand); margin-right: 6px; }
+  .af-modal-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.7;
+    margin: 0 0 18px;
+  }
+  .af-qr-img {
+    display: flex;
+    justify-content: center;
+    margin: 0 0 12px;
+  }
+  .af-qr-img img {
+    width: 240px; height: 240px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    padding: 8px;
+  }
+  .af-qr-url {
+    font-family: 'SF Mono','Consolas','Monaco',monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    word-break: break-all;
+    margin: 0 0 10px;
+  }
+  .af-qr-hint {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* トースト */
+  .af-toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 20px;
+    border-radius: 8px;
+    background: var(--heading);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    z-index: 200;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.20);
+  }
+  .af-toast[hidden] { display: none; }
+  .af-toast-success { background: #0ACF83; }
+  .af-toast-error { background: #F24E1E; }
+
+  /* スマホ */
+  @media (max-width: 768px) {
+    .af-toolbar-section { position: static; }
+    .af-toolbar { flex-direction: column; align-items: stretch; }
+    .af-toolbar-left, .af-toolbar-right { width: 100%; }
+    .af-toolbar-right { justify-content: flex-end; }
+    .af-tabs { justify-content: space-between; flex-wrap: wrap; }
+    .af-tab { flex: 1; justify-content: center; padding: 8px 8px; font-size: 0.78rem; }
+    .af-persona-select { flex: 1; min-width: 0; }
+    .af-icon-btn { padding: 7px 10px; font-size: 0.75rem; }
+
+    .af-inbox-layout { grid-template-columns: 1fr; }
+    .af-inbox-list-pane { position: static; }
+
+    .af-fields-dl { grid-template-columns: 1fr; gap: 2px 0; }
+    .af-fields-dl dd { margin-bottom: 8px; }
+
+    .af-steps { gap: 6px; }
+    .af-step { padding: 6px 8px; }
+    .af-step-name { font-size: 0.78rem; }
+    .af-step-title { font-size: 0.68rem; }
+  }
+  @media (max-width: 480px) {
+    .af-card-num { font-size: 2rem; }
+    .af-template-grid { grid-template-columns: 1fr; }
+    .af-form { padding: 18px 16px; }
+  }
+</style>

@@ -1,0 +1,195 @@
+{
+  "personas": [
+    { "id": "tanaka",   "role": "submitter", "name": "田中 一郎", "title": "営業部 担当",     "icon": "fa-user" },
+    { "id": "sato",     "role": "approver1", "name": "佐藤 健太", "title": "営業部 部長",     "icon": "fa-user-tie" },
+    { "id": "suzuki",   "role": "approver2", "name": "鈴木 美咲", "title": "経理部 マネージャー", "icon": "fa-calculator" },
+    { "id": "yamada",   "role": "approver3", "name": "山田 太郎", "title": "代表取締役",     "icon": "fa-crown" }
+  ],
+  "templates": [
+    {
+      "id": "expense",
+      "title": "経費申請",
+      "icon": "fa-receipt",
+      "summary": "出張・交際・備品などの経費精算を申請します。金額に応じて承認ルートが自動で変わります。",
+      "fields": [
+        { "key": "purpose",   "label": "用途",       "type": "text",     "placeholder": "例：取引先訪問の交通費" },
+        { "key": "category",  "label": "経費区分",   "type": "select",   "options": ["旅費交通費","会議費","交際費","消耗品費","通信費"] },
+        { "key": "amount",    "label": "金額（円）", "type": "number",   "placeholder": "例：80000" },
+        { "key": "incurredAt","label": "発生日",     "type": "date" },
+        { "key": "memo",      "label": "詳細・備考", "type": "textarea", "placeholder": "出張先・参加者・経緯など" }
+      ],
+      "rules": [
+        { "when": "amount <= 50000",  "route": ["sato"],                       "label": "5万円以下：部長承認のみ" },
+        { "when": "amount <= 200000", "route": ["sato", "suzuki"],             "label": "5万円超〜20万円：部長 → 経理" },
+        { "when": "amount > 200000",  "route": ["sato", "suzuki", "yamada"],   "label": "20万円超：部長 → 経理 → 代表" }
+      ]
+    },
+    {
+      "id": "purchase",
+      "title": "購買稟議",
+      "icon": "fa-cart-shopping",
+      "summary": "備品・ソフトウェア・外注サービスなどの新規購入を稟議します。区分と金額で承認ルートが変わります。",
+      "fields": [
+        { "key": "itemName",  "label": "購入品目",   "type": "text",     "placeholder": "例：業務用ノートPC（5台）" },
+        { "key": "category",  "label": "購買区分",   "type": "select",   "options": ["IT機器","ソフトウェアライセンス","オフィス備品","外注サービス","その他"] },
+        { "key": "vendor",    "label": "購入先",     "type": "text",     "placeholder": "例：株式会社○○商会" },
+        { "key": "amount",    "label": "金額（円）", "type": "number",   "placeholder": "例：450000" },
+        { "key": "reason",    "label": "購入理由",   "type": "textarea", "placeholder": "業務上の必要性・代替案の検討結果など" }
+      ],
+      "rules": [
+        { "when": "amount <= 100000",  "route": ["sato"],                       "label": "10万円以下：部長承認のみ" },
+        { "when": "amount <= 500000",  "route": ["sato", "suzuki"],             "label": "10万円超〜50万円：部長 → 経理" },
+        { "when": "amount > 500000",   "route": ["sato", "suzuki", "yamada"],   "label": "50万円超：部長 → 経理 → 代表" }
+      ]
+    },
+    {
+      "id": "contract",
+      "title": "契約書承認",
+      "icon": "fa-file-signature",
+      "summary": "取引先との契約締結を申請します。契約金額・契約期間に応じて承認ルートが変わります。",
+      "fields": [
+        { "key": "counterparty","label": "契約相手",     "type": "text",     "placeholder": "例：株式会社○○" },
+        { "key": "contractType","label": "契約種別",     "type": "select",   "options": ["業務委託契約","売買契約","賃貸借契約","ライセンス契約","秘密保持契約（NDA）"] },
+        { "key": "amount",      "label": "契約金額（円）","type": "number",   "placeholder": "例：1200000" },
+        { "key": "termMonths",  "label": "契約期間（月）","type": "number",   "placeholder": "例：12" },
+        { "key": "summary",     "label": "契約概要",     "type": "textarea", "placeholder": "契約の目的・主要条件・特記事項など" }
+      ],
+      "rules": [
+        { "when": "amount <= 300000",  "route": ["sato"],                       "label": "30万円以下：部長承認のみ" },
+        { "when": "amount <= 1000000", "route": ["sato", "suzuki"],             "label": "30万円超〜100万円：部長 → 経理" },
+        { "when": "amount > 1000000",  "route": ["sato", "suzuki", "yamada"],   "label": "100万円超：部長 → 経理 → 代表" }
+      ]
+    },
+    {
+      "id": "leave",
+      "title": "休暇届",
+      "icon": "fa-umbrella-beach",
+      "summary": "有給休暇・特別休暇などの取得を申請します。期間が長い場合は経理の承認も必要です。",
+      "fields": [
+        { "key": "leaveType", "label": "休暇種別",   "type": "select",   "options": ["有給休暇","特別休暇","慶弔休暇","代休","その他"] },
+        { "key": "startDate", "label": "開始日",     "type": "date" },
+        { "key": "endDate",   "label": "終了日",     "type": "date" },
+        { "key": "days",      "label": "取得日数",   "type": "number",   "placeholder": "例：3" },
+        { "key": "reason",    "label": "事由",       "type": "textarea", "placeholder": "私用・家族行事など（任意）" }
+      ],
+      "rules": [
+        { "when": "days <= 3",  "route": ["sato"],             "label": "3日以内：部長承認のみ" },
+        { "when": "days > 3",   "route": ["sato", "suzuki"],   "label": "4日以上：部長 → 経理" }
+      ]
+    },
+    {
+      "id": "hire",
+      "title": "採用稟議",
+      "icon": "fa-user-plus",
+      "summary": "新規採用（正社員・契約社員・業務委託）の決定を稟議します。雇用形態に応じて承認者が変わります。",
+      "fields": [
+        { "key": "candidateName","label": "候補者氏名",   "type": "text",     "placeholder": "例：山本 花子" },
+        { "key": "employmentType","label": "雇用形態",    "type": "select",   "options": ["正社員","契約社員","パート・アルバイト","業務委託"] },
+        { "key": "position",     "label": "想定ポジション","type": "text",     "placeholder": "例：営業部 アシスタント" },
+        { "key": "monthlySalary","label": "月額（円）",   "type": "number",   "placeholder": "例：280000" },
+        { "key": "startDate",    "label": "入社（着任）予定日", "type": "date" },
+        { "key": "evaluation",   "label": "選考所見",     "type": "textarea", "placeholder": "強み・期待役割・懸念点など" }
+      ],
+      "rules": [
+        { "when": "employmentType == 'パート・アルバイト'", "route": ["sato"],                     "label": "パート・アルバイト：部長承認のみ" },
+        { "when": "employmentType == '業務委託'",          "route": ["sato", "suzuki"],           "label": "業務委託：部長 → 経理" },
+        { "when": "employmentType == '契約社員'",          "route": ["sato", "suzuki"],           "label": "契約社員：部長 → 経理" },
+        { "when": "employmentType == '正社員'",            "route": ["sato", "suzuki", "yamada"], "label": "正社員：部長 → 経理 → 代表" }
+      ]
+    }
+  ],
+  "seed": [
+    {
+      "templateId": "expense",
+      "title": "出張交通費（北杜→東京）",
+      "submitterId": "tanaka",
+      "fields": {
+        "purpose": "取引先（株式会社グリーンリーフ）への定例訪問",
+        "category": "旅費交通費",
+        "amount": 38000,
+        "incurredAt": "2026-04-22",
+        "memo": "新宿→甲府→北杜往復、宿泊なし"
+      },
+      "status": "approved",
+      "createdDaysAgo": 7,
+      "history": [
+        { "type": "submit",  "byId": "tanaka", "comment": "今月分の出張交通費です。", "daysAgo": 7 },
+        { "type": "approve", "byId": "sato",   "comment": "確認しました。",         "daysAgo": 6 }
+      ]
+    },
+    {
+      "templateId": "purchase",
+      "title": "業務用ノートPC（3台）",
+      "submitterId": "tanaka",
+      "fields": {
+        "itemName": "業務用ノートPC（Lenovo ThinkPad E14）×3台",
+        "category": "IT機器",
+        "vendor": "株式会社デルタコンピュータ",
+        "amount": 420000,
+        "reason": "営業3名分の更新。現行機は購入から5年経過、サポート切れ。"
+      },
+      "status": "pending",
+      "currentStep": 1,
+      "createdDaysAgo": 2,
+      "history": [
+        { "type": "submit",  "byId": "tanaka", "comment": "営業3名分の更新です。",    "daysAgo": 2 },
+        { "type": "approve", "byId": "sato",   "comment": "更新時期として妥当。",    "daysAgo": 1 }
+      ]
+    },
+    {
+      "templateId": "contract",
+      "title": "業務委託契約（Webサイト保守）",
+      "submitterId": "tanaka",
+      "fields": {
+        "counterparty": "合同会社ブルームクラウド",
+        "contractType": "業務委託契約",
+        "amount": 720000,
+        "termMonths": 12,
+        "summary": "コーポレートサイトの保守・運用業務（月額60,000円×12ヶ月）"
+      },
+      "status": "pending",
+      "currentStep": 0,
+      "createdDaysAgo": 1,
+      "history": [
+        { "type": "submit", "byId": "tanaka", "comment": "現行契約の更新です。", "daysAgo": 1 }
+      ]
+    },
+    {
+      "templateId": "leave",
+      "title": "有給休暇（5/7-5/9）",
+      "submitterId": "tanaka",
+      "fields": {
+        "leaveType": "有給休暇",
+        "startDate": "2026-05-07",
+        "endDate": "2026-05-09",
+        "days": 3,
+        "reason": "家族の都合"
+      },
+      "status": "pending",
+      "currentStep": 0,
+      "createdDaysAgo": 0,
+      "history": [
+        { "type": "submit", "byId": "tanaka", "comment": "GW明けの3日間です。", "daysAgo": 0 }
+      ]
+    },
+    {
+      "templateId": "expense",
+      "title": "会食費（取引先接待）",
+      "submitterId": "tanaka",
+      "fields": {
+        "purpose": "株式会社山田製作所との会食",
+        "category": "交際費",
+        "amount": 64000,
+        "incurredAt": "2026-04-18",
+        "memo": "甲府市内、4名（先方2、当方2）"
+      },
+      "status": "rejected",
+      "createdDaysAgo": 10,
+      "history": [
+        { "type": "submit", "byId": "tanaka", "comment": "先方からのご招待をお返しした形です。", "daysAgo": 10 },
+        { "type": "approve","byId": "sato",   "comment": "金額妥当、承認。",                  "daysAgo": 9 },
+        { "type": "reject", "byId": "suzuki", "comment": "領収書の宛名が個人名になっています。差戻し。会社宛で再提出をお願いします。", "daysAgo": 8 }
+      ]
+    }
+  ]
+}
